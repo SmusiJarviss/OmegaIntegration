@@ -1,10 +1,10 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { Client, Collection, Events, GatewayIntentBits } = require('discord.js');
-const { token } = require('./config.json');    
+const { token, git_token } = require('./config.json');    
 const { Octokit } = require('octokit')
 
-const octokit = new Octokit({ auth: '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' })
+const octokit = new Octokit({ auth: git_token })
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
 client.commands = new Collection();
@@ -26,6 +26,14 @@ for (const file of commandFiles)
 		console.log(`[WARNING] The command at ${filePath} is missing a required "data" or "execute" property.`);
 	}
 }
+
+client.once(Events.ClientReady, async () => 
+{
+    if (await (await octokit.request('GET /rate_limit', {} )).status == 200)
+        return console.log('\x1b[42m Connected successfully to the GitHub API. \x1b[0m');
+    
+    console.log('\x1b[41m No connection to the GitHub API, maybe GitHub_Token is invalid or rate limit occurred. \x1b[0m');
+});
 
 client.on(Events.InteractionCreate, async interaction => 
 {
@@ -59,18 +67,25 @@ client.on(Events.InteractionCreate, async interaction =>
     
     if (!interaction.isModalSubmit()) return;
 
-	await octokit.rest.issues.create({
-        owner: "Omega-SCP",
-        repo: "OmegaCore",
-        title: interaction.fields.getTextInputValue("title"),
-        body: interaction.fields.getTextInputValue("description") + `\nIssue creato da: ${interaction.user.username + "#" + interaction.user.discriminator}`,
-        labels: 
-        [
-            'bug'
-        ]
-    });
-
-    interaction.reply({ content: "Issue creato con successo", ephemeral: true})
+    try
+    {
+        await octokit.rest.issues.create({
+            owner: "Omega-SCP",
+            repo: "OmegaCore",
+            title: interaction.fields.getTextInputValue("title"),
+            body: interaction.fields.getTextInputValue("description") + `\nIssue creato da: ${interaction.user.username + "#" + interaction.user.discriminator}`,
+            labels: 
+            [
+                'bug'
+            ]
+        });
+    
+        interaction.reply({ content: "Issue creato con successo", ephemeral: true});
+    }
+    catch (error)
+    {
+        console.log(error);
+    }
 });
 
 client.login(token);
